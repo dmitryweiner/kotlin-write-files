@@ -4,23 +4,30 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.ParcelFileDescriptor
 import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import androidx.core.net.toFile
 import java.io.*
-import java.net.URI
 
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        const val CREATE_FILE = 1
+        const val OPEN_FILE = 2
+    }
+
+    lateinit var editTextFileName: EditText
+    lateinit var editTextFileContents: EditText
+
     @RequiresApi(Build.VERSION_CODES.M)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,13 +105,35 @@ class MainActivity : AppCompatActivity() {
         buttonWriteIntent.setOnClickListener {
             writeViaIntent()
         }
+
+        val buttonReadIntent = findViewById<Button>(R.id.buttonReadIntent)
+        buttonReadIntent.setOnClickListener {
+            readViaIntent()
+        }
+
+        val textViewPrivateStorage = findViewById<TextView>(R.id.textViewPrivateStorage)
+        textViewPrivateStorage.text = "${resources.getString(R.string.private_storage)} ${filesDir.absolutePath}"
+
+        val textViewSharedStorage = findViewById<TextView>(R.id.textViewSharedStorage)
+        val path = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.getExternalStoragePublicDirectory(
+                // тут можно выбрать, в какой каталог писать
+                Environment.DIRECTORY_DOCUMENTS
+            ).absolutePath
+        } else {
+            Environment.getExternalStorageDirectory().absolutePath
+        }
+        textViewSharedStorage.text = "${resources.getString(R.string.shared_storage)} $path"
+
+        editTextFileName = findViewById(R.id.editTextFileName)
+        editTextFileContents = findViewById(R.id.editTextFileContents)
     }
 
-    fun writeToPrivateStorage() {
-        val FILE_NAME = "file.txt"
+    private fun writeToPrivateStorage() {
+        val FILE_NAME = editTextFileName.text.toString()
         var fos: FileOutputStream? = null
         try {
-            val text = "Какие-то данные"
+            val text = editTextFileContents.text.toString()
             fos = openFileOutput(FILE_NAME, MODE_PRIVATE)
             fos.write(text.toByteArray())
             Toast.makeText(
@@ -124,15 +153,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun readFromPrivateStorage() {
-        val FILE_NAME = "file.txt"
+    private fun readFromPrivateStorage() {
+        val FILE_NAME = editTextFileName.text.toString()
         var fin: FileInputStream? = null
         try {
             fin = openFileInput(FILE_NAME)
             val bytes = ByteArray(fin.available())
             fin.read(bytes)
             val text = String(bytes)
-            Toast.makeText(this, "Данные из файла: ${text}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Данные из файла: $text", Toast.LENGTH_SHORT).show()
         } catch (ex: IOException) {
             Toast.makeText(this, ex.message, Toast.LENGTH_SHORT).show()
         } finally {
@@ -144,8 +173,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun writeToSharedStorage(createdFile: File? = null) {
-        val FILE_NAME = "file.txt"
+    private fun writeToSharedStorage(createdFile: File? = null) {
+        val FILE_NAME = editTextFileName.text.toString()
         var path: File? = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             path = Environment.getExternalStoragePublicDirectory(
@@ -158,7 +187,7 @@ class MainActivity : AppCompatActivity() {
 
         var fos: FileOutputStream? = null
         try {
-            val text = "Какие-то данные"
+            val text = editTextFileContents.text.toString()
             val file = createdFile ?: File(path, FILE_NAME)
             file.createNewFile()
             fos = FileOutputStream(file);
@@ -180,8 +209,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun readFromSharedStorage() {
-        val FILE_NAME = "file.txt"
+    private fun readFromSharedStorage() {
+        val FILE_NAME = editTextFileName.text.toString()
         var path: File? = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             path = Environment.getExternalStoragePublicDirectory(
@@ -199,7 +228,7 @@ class MainActivity : AppCompatActivity() {
             val bytes = ByteArray(fin.available())
             fin.read(bytes)
             val text = String(bytes)
-            Toast.makeText(this, "Данные из файла: ${text}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Данные из файла: $text", Toast.LENGTH_SHORT).show()
         } catch (ex: Exception) {
             Toast.makeText(this, ex.message, Toast.LENGTH_SHORT).show()
         } finally {
@@ -211,9 +240,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    val CREATE_FILE = 1
-    fun writeViaIntent() {
-        val FILE_NAME = "file.txt"
+
+    private fun writeViaIntent() {
+        val FILE_NAME = editTextFileName.text.toString()
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
         intent.addCategory(Intent.CATEGORY_OPENABLE)
         intent.type = "application/txt"
@@ -221,16 +250,44 @@ class MainActivity : AppCompatActivity() {
         startActivityForResult(intent, CREATE_FILE)
     }
 
+    private fun readViaIntent() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "*/*"
+        startActivityForResult(intent, OPEN_FILE)
+    }
+
     override fun onActivityResult(
         requestCode: Int, resultCode: Int, resultData: Intent?) {
         super.onActivityResult(requestCode, resultCode, resultData)
-        val text = "Какие-то данные"
+        val textViewIntentStorage = findViewById<TextView>(R.id.textViewIntentStorage)
+        val text = editTextFileContents.text.toString()
         if (requestCode == CREATE_FILE
             && resultCode == Activity.RESULT_OK) {
             resultData?.data?.also { uri ->
-                Toast.makeText(this, "Файл сохранён: ${uri.toString()}", Toast.LENGTH_SHORT).show()
-                val fos = contentResolver.openOutputStream(uri)
-                fos?.write(text.toByteArray())
+                Toast.makeText(this, "Файл сохранён: $uri", Toast.LENGTH_SHORT).show()
+                textViewIntentStorage.text = "${resources.getString(R.string.selected_storage)} $uri"
+                try {
+                    val fos = contentResolver.openOutputStream(uri)
+                    fos?.write(text.toByteArray())
+                } catch (ex: Exception) {
+                    Toast.makeText(this, ex.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        if (requestCode == OPEN_FILE
+            && resultCode == Activity.RESULT_OK) {
+            resultData?.data?.also { uri ->
+                textViewIntentStorage.text = "${resources.getString(R.string.selected_storage)} $uri"
+                try {
+                    val fin = contentResolver.openInputStream(uri)
+                    val bytes = ByteArray(fin!!.available())
+                    fin.read(bytes)
+                    val readText = String(bytes)
+                    Toast.makeText(this, "Данные из файла: $readText", Toast.LENGTH_SHORT).show()
+                } catch (ex: Exception) {
+                    Toast.makeText(this, ex.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
