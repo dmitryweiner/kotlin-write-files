@@ -2,6 +2,8 @@
 
 [Презентация](https://dmitryweiner.github.io/android-lectures/Files.html#/)
 
+[Скомпилированное приложение](https://github.com/dmitryweiner/kotlin-write-files/raw/master/app-debug.apk)
+
 ### Запись в Private storage
 
 ```kotlin
