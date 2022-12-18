@@ -4,6 +4,8 @@
 
 [Скомпилированное приложение](https://github.com/dmitryweiner/kotlin-write-files/raw/master/app-debug.apk)
 
+![](demo.png)
+
 ### Запись в Private storage
 
 ```kotlin
